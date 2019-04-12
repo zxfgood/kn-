@@ -199,6 +199,7 @@ public class KNAppOutticketService {
                     memberIdMap.put(memberKey, memberId);
                 }
             }
+            logger.info(orderNo + "--添加乘客");
             String back = "";
             List<String> passengerId = new ArrayList<String>();
             try {
@@ -207,15 +208,7 @@ public class KNAppOutticketService {
                     logger.info(orderNo + "--登陆失效");
                     return;
                 }
-                logger.info(orderNo + "--获取常用乘客表");
-               /* passengerId = getSamePassengerList(httpclient, cookie, orderInfo, defaultRequestConfig, memberId);
-                if (passengerId != null && passengerId.size() != 0 && "please login first".equals(passengerId.get(0))) {
-                    logger.info(orderNo + "--登陆失效");
-//					this.synchronAccounInfo(accountInfo, "");
-                    return;
-                }*/
-                logger.info(orderNo + "--添加乘客");
-                addPassengers(orderInfo, accountInfo, httpclient, cookie, defaultRequestConfig, passengerId);
+                back = addPassengers(orderInfo, accountInfo, httpclient, cookie, defaultRequestConfig, passengerId);
 //				if (back.contains("您要查看的页面不存在")) {
 //					logger.info(orderNo + "--添加乘机人失败");
 //					return;
@@ -226,6 +219,12 @@ public class KNAppOutticketService {
                     logger.info(orderNo + "--登陆失效");
                     return;
                 }
+                passengerId = getSamePassengerList(httpclient, cookie, orderInfo, defaultRequestConfig, memberId);
+                if (passengerId != null && passengerId.size() != 0 && "please login first".equals(passengerId.get(0))) {
+                    logger.info(orderNo + "--登陆失效");
+//					this.synchronAccounInfo(accountInfo, "");
+                    return;
+                }
             } catch (Exception e) {
                 logger.error(orderNo + "--添加乘客异常");
                 return;
@@ -234,10 +233,10 @@ public class KNAppOutticketService {
                 logger.info(orderNo + "--已取消出票");
                 return;
             }
-            /*if (passengerId.size() != orderInfo.getPaxInfos().size()) {
+            if (passengerId.size() != orderInfo.getPaxInfos().size()) {
                 logger.error(orderNo + "--乘客数量对应不上");
                 return;
-            }*/
+            }
             SysData.paxIdMap.put(orderInfo.getId() + "-" + accountInfo.getId(), passengerId);
             success = true;
         } catch (Throwable e) {
@@ -333,7 +332,6 @@ public class KNAppOutticketService {
             CloseableHttpResponse response = httpclient.execute(target, post);
             back = EntityUtils.toString(response.getEntity(), "utf-8");
             logger.info(orderInfo.getOrderNo() + "--添加乘客后返回:" + back);
-            // Thread.sleep(1000);
         }
         return back;
     }
@@ -385,11 +383,16 @@ public class KNAppOutticketService {
         HttpPost post = new HttpPost("https://higo.flycua.com/ffp/member/login");
         post.setConfig(defaultRequestConfig);
         HttpHost target = new HttpHost("www.flycua.com", 443, "https");
+        // String account = "NrcZ9YVVM/N5PuZaHJfqltN6wPGOIfrHwwFNJ4DTKCGZjbgpjiMPjBVBguz512LrxG/9mpnFFtRYXdzyKfh8kUc/Kw5gfdrdYW772VpVfBk5Hy/RVF2n9wDm5rXeZ/T62S0iZK2dDQ1Bqf5V9QKC4A==";
+        // NrcZ9YVVM/N5PuZaHJfqltN6wPGOIfrHwwFNJ4DTKCFkG3VNDPnRVsCDhhU17dRzxG/9mpnFFtRYXdzyKfh8kUc/Kw5gfdrdYW772VpVfBk5Hy/RVF2n9wDm5rXeZ/T62S0iZK2dDQ1Bqf5V9QKC4A==
+        // String a = aesInvokeFunction("decrypt", account);
         String accountMsg = "{\"mode\":\"memberLogin\",\"memberId\":"+ accountInfo.getAccount()+",\"password\":"+ accountInfo.getPassword() +",\"verificationCode\":\"\",\"openId\":\"\"}";
         String account = aesInvokeFunction("encrypt", accountMsg);
         StringEntity entity = new StringEntity(account, Charset.forName("UTF-8"));
+        // post.setEntity(new UrlEncodedFormEntity(nameValue, "utf-8"));
         post.setEntity(entity);
         post.setHeader("Host", "higo.flycua.com");
+        // post.setHeader("Cookie", "tokenId=13B9AEF1F8B7CD36DE7621145423944DA4AF77654043DAD638E9F93B378F94E1F1F8B81B4FBF4ABF96C3073EA3712CDB0C92CD37F13F17C47FAEC3B4D1348D48; Domain=.flycua.com; Path=/");
         post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
         post.setHeader("Referer", "https://higo.flycua.com/hh/html/cuaLoginNew.html");
         post.setHeader("Origin", "https://higo.flycua.com");
@@ -402,12 +405,9 @@ public class KNAppOutticketService {
         CloseableHttpResponse response = httpclient.execute(post);
 
         back = EntityUtils.toString(response.getEntity(), "utf-8");
-        // Thread.sleep(1000);
-        logger.error("登录 back:" + back);
         JSONObject message = new JSONObject(back);
         String backDesc = message.get("errordesc").toString();
         back = aesInvokeFunction("decrypt", backDesc);
-        logger.error("登录 back2:" + back);
         JSONObject backMess = new JSONObject(back);
         String memberId = backMess.get("memberId").toString();
         String errorcode = backMess.get("errorcode").toString();
@@ -460,7 +460,6 @@ public class KNAppOutticketService {
         response = httpclient.execute(target, post);
 
         back = EntityUtils.toString(response.getEntity(), "utf-8");
-        // Thread.sleep(1000);
         logger.info("登录返回1:" + back);
         if (StringUtil.isEmpty(back)) {
             return "";
@@ -551,7 +550,6 @@ public class KNAppOutticketService {
         response = httpclient.execute(target, post);
 
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
-        // Thread.sleep(1000);
         logger.info("登录返回1:" + back);
         if (StringUtil.isEmpty(back)) {
             return "";
@@ -594,7 +592,7 @@ public class KNAppOutticketService {
         for (int i = 0; i < 5; i++) {
             try {
                 HttpPost post = new HttpPost("/h5/pip/book/flightSearch.json");
-                HttpHost target = new HttpHost("m.flycua.com", 443, "https");
+                HttpHost target = new HttpHost("wx.flycua.com", 443, "https");
                 HttpClientContext context = HttpClientContext.create();
                 context.setAuthCache(authCache);
                 context.setTargetHost(target);
@@ -604,8 +602,8 @@ public class KNAppOutticketService {
                 String jsonObject = "{\"tripType\":\"OW\",\"orgCode\":\"" + dep.replace("BJS", "NAY").replace("SHA", "PVG") + "\",\"dstCode\":\"" + arrival.replace("BJS", "NAY").replace("SHA", "PVG") + "\",\"takeoffdate1\":\"" + depTime + "\",\"takeoffdate2\":\"\"}";
                 StringEntity entity = new StringEntity(jsonObject.toString(), Charset.forName("UTF-8"));
                 post.setEntity(entity);
-                post.setHeader("Referer", "https://m.flycua.com/h5/");
-                post.setHeader("Origin", "https://m.flycua.com");
+                post.setHeader("Referer", "https://wx.flycua.com/h5/");
+                post.setHeader("Origin", "https://wx.flycua.com");
                 if (!SysData.useAbuyunProxy) {
                     post.setHeader("Proxy-Authorization", "Basic " + Base64.encodeBase64String(
                             new StringBuilder(SysData.abuyunUser).append(":").append(SysData.abuyunPwd).toString().getBytes("utf-8")));
@@ -617,10 +615,8 @@ public class KNAppOutticketService {
                 post.setHeader("isB2C", "NO");
                 post.setHeader("isWechat", "H5");
 
-                response = httpclient.execute(target, post, context);
+                response = httpclient.execute(target,post,context);
                 content = EntityUtils.toString(response.getEntity(),"utf-8");
-                logger.error("getFlightPriceInfo:" + content);
-                // Thread.sleep(1000);
             } catch (Exception e) {
                 logger.error("error", e);
             }
@@ -691,7 +687,6 @@ public class KNAppOutticketService {
 
 
     private List<FlightInfo> doParse(String content, String dept, String arrival, String dateString) {
-        logger.error("doParse:" + content);
         List<FlightInfo> resultList = new ArrayList<FlightInfo>();
         //解析json
         try {
@@ -858,7 +853,7 @@ public class KNAppOutticketService {
                         InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
                         return;
                     }
-                    // cookie = resultMap.get("cookie");
+                    cookie = resultMap.get("cookie");
                     back = resultMap.get("result");
                     logger.info(order_id + "--查询航班返回结果:" + back);
                     if (StringUtil.isNotEmpty(back) && !back.contains("503 Service") && !back.contains("非授权使用")) {
@@ -881,7 +876,7 @@ public class KNAppOutticketService {
                     return;
                 }
             }
-            // String billNo = "";
+            String billNo = "";
             if (SysData.grabOrderMap.get(orderInfo.getId() + "") == null) {
                 logger.info(order_id + "--已取消出票");
                 return;
@@ -892,7 +887,6 @@ public class KNAppOutticketService {
                 InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
                 return;
             }
-            logger.info("登录开始");
             cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
             if (cookie == null) {
                 logger.info(order_id + "--登录失败");
@@ -911,13 +905,13 @@ public class KNAppOutticketService {
                 return;
             }
             ////////////////////////////////////////////////////
-          /*cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+            cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
             if (cookie == null) {
                 return;
-            }*/
+            }
             ///////////////////////////////////////////////
-            /* back = flightSearchagain(cookie, orderInfo, builder, authCache, credsProvider, defaultRequestConfig, httpclient);
-            logger.info(order_id + "--开始登陆");*/
+            back = flightSearchagain(cookie, orderInfo, builder, authCache, credsProvider, defaultRequestConfig, httpclient);
+            logger.info(order_id + "--开始登陆");
             //选择航班
             logger.info(order_id + "--选择航班");
             grabStatus = "选择航班";
@@ -944,7 +938,6 @@ public class KNAppOutticketService {
                         InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
                         // login(accountInfo);
                         // return;
-                        // cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                         continue;
                     }
                     if ("查询结果已过期，请重新查询！".equals(error)) {
@@ -952,7 +945,6 @@ public class KNAppOutticketService {
                         InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
                         // login(accountInfo);
                         // return;
-                        cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                         continue;
                     }
                 }
@@ -987,9 +979,9 @@ public class KNAppOutticketService {
                 InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
                 String memberId = memberIdMap.get(memberKey);
                 if (memberId == null) {
-                    // memberId = "";
+                    memberId = "";
                     try {
-                        // cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+                        cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                     }catch (Exception e) {
                         logger.info(order_id + "--获取登录状态异常");
                         return;
@@ -1011,30 +1003,23 @@ public class KNAppOutticketService {
                         memberIdMap.put(memberKey, memberId);
                     }
                 }
+                logger.info(order_id + "--添加乘客");
                 paxIds = new ArrayList<String>();
                 try {
-                    /*cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+                    cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                     if (cookie == null) {
                         logger.info(order_id + "--登陆失效");
                         return;
-                    }*/
-                   /* for (int i= 0; i < 3; i++) {
-                        // 获取常用乘客
-                        paxIds = getSamePassengerList(httpclient, cookie, orderInfo, defaultRequestConfig, memberId);
-                        if (paxIds != null && paxIds.size() != 0 && "please login first".equals(paxIds.get(0))) {
-                            logger.info(order_id + "--登陆失效");
-                            cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
-                            continue;
-                        }
-                        if (paxIds.size() > 0) {
-                            break;
-                        }
-                    }*/
-                    logger.info(order_id + "--添加乘客");
+                    }
                     back = addPassengers(orderInfo, accountInfo, httpclient, cookie, defaultRequestConfig, paxIds);
                     Thread.sleep(2 * 1000);
                     cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                     if (cookie == null) {
+                        logger.info(order_id + "--登陆失效");
+                        return;
+                    }
+                    paxIds = getSamePassengerList(httpclient, cookie, orderInfo, defaultRequestConfig, memberId);
+                    if (paxIds != null && paxIds.size() != 0 && "please login first".equals(paxIds.get(0))) {
                         logger.info(order_id + "--登陆失效");
                         return;
                     }
@@ -1171,9 +1156,9 @@ public class KNAppOutticketService {
             grabStatus = "开始创建订单";
             InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
             int i = 0;
-            for (; i < 8; i++) {
+            for (; i < 3; i++) {
                 try {
-                    // cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+                    cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                     // cookie = "JSESSIONID=E655C810B089AEA69B2224BC13BCA16D; Secure; __jsluid=9c5cf0fa70a4fbab655c8d1bb4ea605a; _gscu_1693774232=53479146hbijp056; _gscu_1166988165=53480333upz7k311; _gscbrs_1693774232=1; tokenId=9CBC7A21DFEF8141A77D78ACA51554D6A4AF77654043DAD638E9F93B378F94E16B05CE1060BCDC4130E6831A2C98188C307DC72E02E976D0D24F7AB558AC80A8; Secure; TY_SESSION_ID=777ab908-bdb9-4e18-b74d-7f431113795b; _gscs_1693774232=t5478797074qz7590|pv:6";
                     back = createOrder(httpclient, defaultRequestConfig, cookie);
                 } catch (Exception e) {
@@ -1186,7 +1171,7 @@ public class KNAppOutticketService {
                 if (StringUtil.isNotEmpty(back) && back.contains("503 Service")) {
                     logger.info(order_id + "请求结果503异常");
                     // break;
-                    continue;
+                    // continue;
                 }
                 if (StringUtil.isNotEmpty(back) && !back.contains("503 Service")) {
                     // logger.info(order_id + "请求结果503异常");
@@ -1194,7 +1179,7 @@ public class KNAppOutticketService {
                     // continue;
                 }
             }
-            if (i == 8) {
+            if (i == 3) {
                 logger.info(order_id + "创单失败:" + back);
                 String result = getOrderList(httpclient, cookie, defaultRequestConfig);
                 if (result.contains("未支付")) {
@@ -1420,8 +1405,7 @@ public class KNAppOutticketService {
             post.setHeader("isWechat", "H5");
             CloseableHttpResponse response = httpclient.execute(target, post);
             back = EntityUtils.toString(response.getEntity(), "utf-8");
-            // Thread.sleep(1000);
-        } catch (Exception e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
         return back;
@@ -1492,7 +1476,6 @@ public class KNAppOutticketService {
             logger.info("第二个请求的url:" + locationValue);
 
             resultMap.put("locationValue", locationValue);
-            // Thread.sleep(1000);
             return resultMap;
         } catch (Exception e) {
             logger.error("error", e);
@@ -1525,7 +1508,7 @@ public class KNAppOutticketService {
 
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
-        Thread.sleep(1000);
+
         return back;
     }
 
@@ -1560,7 +1543,6 @@ public class KNAppOutticketService {
 
                 CloseableHttpResponse response = httpClient.execute(target, post, context);
                 content = EntityUtils.toString(response.getEntity(), "utf-8");
-                // Thread.sleep(1000);
             } catch (Exception e) {
                 logger.error("error", e);
             }
@@ -1612,7 +1594,6 @@ public class KNAppOutticketService {
 
                 response = httpclient.execute(target, post, context);
                 content = EntityUtils.toString(response.getEntity(), "utf-8");
-                // Thread.sleep(1000);
             } catch (Exception e) {
                 logger.error("error", e);
             } finally {
@@ -1685,7 +1666,6 @@ public class KNAppOutticketService {
 
     private Map<String, String> selectFlight(Map<String, String> verifyPostParam, String cookie,
                                              CloseableHttpClient httpclient, RequestConfig defaultRequestConfig) throws Exception {
-        Thread.sleep(2000);
         Map<String, String> resultMap = new HashMap<String, String>();
         HttpPost post = new HttpPost("/h5/pip/book/verify.json");
         String jsonObject = "{\"shoppingKey\":\"" + verifyPostParam.get("shoppingKey") + "\",\"goPricePointUUID\":[{\"tripType\":\"I\",\"transpart\":\"1\",\"pricePointUUID\":\"" + verifyPostParam.get("pricePointUUID") + "\"}]}";
@@ -1709,8 +1689,6 @@ public class KNAppOutticketService {
         post.setHeader("isWechat", "H5");
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
-        logger.error("****************test*********************selectFlight:" + back);
-        // Thread.sleep(1000);
         //outPrint(target,post,null,cookie,jsonObject,back);
         if (StringUtil.isNotEmpty(back) && back.contains("503 Service Temporarily Unavailable")) {
             resultMap.put("error", "503异常重试");
@@ -1780,7 +1758,6 @@ public class KNAppOutticketService {
         post.setHeader("isWechat", "H5");
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
-        // Thread.sleep(1000);
         logger.info("生单返回的内容:" + back);
         JSONObject ancilSearchObj = new JSONObject(back);
         String ancilShoppingKey = ancilSearchObj.getString("ancilShoppingKey");
@@ -1834,7 +1811,6 @@ public class KNAppOutticketService {
         post.setHeader("isWechat", "H5");
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
-        // Thread.sleep(1000);
         logger.info(orderInfo.getOrderNo() + "verifyContactResult:" + back);
         JSONObject verifyContactObj = new JSONObject(back);
         String msg = "";
@@ -1894,7 +1870,6 @@ public class KNAppOutticketService {
         post.setHeader("isWechat", "H5");
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
-        // Thread.sleep(1000);
         return back;
     }
 
@@ -1965,7 +1940,6 @@ public class KNAppOutticketService {
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
         logger.info("生单后返回:" + back);
-        // Thread.sleep(1000);
         return back;
     }
 
@@ -1995,7 +1969,6 @@ public class KNAppOutticketService {
         try {
             CloseableHttpResponse response = httpclient.execute(target, post);
             back = EntityUtils.toString(response.getEntity(), "utf-8");
-            // Thread.sleep(1000);
         } catch (Exception e) {
             post.abort();
         }
@@ -2073,7 +2046,6 @@ public class KNAppOutticketService {
         JSONObject json = new JSONObject(back);
         String errordesc = json.getString("errordesc");
         back = aesInvokeFunction("decrypt", errordesc);
-        // Thread.sleep(1000);
         if (StringUtil.isNotEmpty(back) && back.contains("please login first")) {
             passengerIds.add("please login first");
             return passengerIds;
@@ -2120,7 +2092,7 @@ public class KNAppOutticketService {
         }
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity());
-        // Thread.sleep(1000);
+
         JSONObject json = new JSONObject(back);
         String errordesc = json.getString("errordesc");
         errordesc = aesInvokeFunction("decrypt", errordesc);
@@ -2133,9 +2105,8 @@ public class KNAppOutticketService {
         if (StringUtil.isNotEmpty(errordesc) && errordesc.contains("please login first")) {
             return "please login first";
         }
-        JSONObject errordescJson = new JSONObject(errordesc);*/
-
-        // String memberId = errordescJson.getString("memberId");
+        JSONObject errordescJson = new JSONObject(errordesc);
+        String memberId = errordescJson.getString("memberId");*/
         String memberId = "";
         String[] c = cookie.split(";");
         for (String a: c) {
@@ -2208,7 +2179,6 @@ public class KNAppOutticketService {
             }
             response = httpclient.execute(target, post);
             back = EntityUtils.toString(response.getEntity());
-            // Thread.sleep(1000);
         } catch (Exception e) {
             logger.error("获取订单信息失败" + e);
         } finally {
