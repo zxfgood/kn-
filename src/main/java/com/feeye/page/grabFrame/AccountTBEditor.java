@@ -68,7 +68,7 @@ public class AccountTBEditor extends DefaultCellEditor implements TableCellRende
 				JLabel source = (JLabel) e.getSource();
 				JRootPane rootPane = source.getRootPane();
 				// GrabListPanel instance = (GrabListPanel) rootPane.findComponentAt(2, 25);
-				GrabListPanel instance = new GrabListPanel();
+				GrabListPanel instance = SysData.grabListPanel;
 				String[] split = panel.getName().split("-");
 				if (!loginOver) {
 					return;
@@ -110,7 +110,7 @@ public class AccountTBEditor extends DefaultCellEditor implements TableCellRende
 			JLabel source = (JLabel) e.getSource();
 			JRootPane rootPane = source.getRootPane();
 			// GrabListPanel instance = (GrabListPanel) rootPane.findComponentAt(2, 25);
-			GrabListPanel instance = new GrabListPanel();
+			GrabListPanel instance = SysData.grabListPanel;
 			String[] split = panel.getName().split("-");
 			Collection<AccountInfo> accountInfos = SysData.accountMap.get(split[1]).values();
 			AccountInfo accountInfo = null;

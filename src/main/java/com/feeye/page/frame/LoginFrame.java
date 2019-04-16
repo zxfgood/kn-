@@ -95,8 +95,8 @@ public class LoginFrame {
 		bt_login.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				String feeyeusr = jtf_user.getText();
-				String feeyepwd = String.valueOf(jtf_pwd.getPassword());
+				String feeyeusr = /*jtf_user.getText()*/ "policytest";
+				String feeyepwd = /*String.valueOf(jtf_pwd.getPassword())*/ "feeye0100";
 				String errMsg = null;
 				if (StringUtil.isEmpty(feeyeusr)) {
 					errMsg = "请输入用户名";

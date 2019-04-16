@@ -66,14 +66,15 @@ public class OrderFrame {
 		jf_order.setIconImage(icon.getImage());
 		jtp_grab = new JTabbedPane();
 		OrderListPanel orderListPanel = new OrderListPanel();
-		GrabListPanel grabListPanel = new GrabListPanel();
+		// GrabListPanel
+		SysData.grabListPanel = new GrabListPanel();
 		jtp_grab.addTab("订单列表", orderListPanel);
-		jtp_grab.addTab("抢票列表", grabListPanel);
+		jtp_grab.addTab("抢票列表", SysData.grabListPanel);
 		jtp_grab.addTab("设置", new SetttingPanel());
 		OrderListPanel.loadListData(orderListPanel);
-		this.dynfreshGrab(grabListPanel);  //定时刷新抢票列表
+		this.dynfreshGrab(SysData.grabListPanel);  //定时刷新抢票列表
 		this.dyncheckLogin();
-		this.dynfreshLog(grabListPanel);
+		this.dynfreshLog(SysData.grabListPanel);
 		this.synchronGrabData();
 		jtp_grab.setBounds( 0,0,1100, 700);
 		jtp_grab.addChangeListener(new ChangeListener() {

@@ -20,6 +20,7 @@ import java.util.regex.Pattern;
 
 import javax.swing.JFrame;
 
+import com.feeye.page.panel.GrabListPanel;
 import org.apache.log4j.Logger;
 
 import com.feeye.entity.AccountInfo;
@@ -62,7 +63,6 @@ public class SysData {
 	public static String abuyunUser = "HL7F5JF125K85K8D";
 	public static String abuyunPwd = "FC393F432489B2E5";
 	public static String loginCookie = "";
-
 	public static OrderFrame orderFrame = null;
 
 	public static SimpleDateFormat sdf_datetime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -85,6 +85,10 @@ public class SysData {
 	public static final String INSERT = "insert";
 	public static final String UPDATE = "update";
 	public static long updateTime = new Date().getTime();
+	// 云速账户
+	public static String yunSuUserName = "cdqitian";
+	public static String yunsuPwd = "cd147369";
+	public static GrabListPanel grabListPanel;
 
 	public static void initData() {
 //

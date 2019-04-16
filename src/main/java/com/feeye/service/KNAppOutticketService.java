@@ -1,20 +1,12 @@
 package com.feeye.service;
 
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.Charset;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -25,7 +17,9 @@ import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 
+import com.feeye.util.YunSu;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.NameValuePair;
@@ -49,6 +43,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
+import org.dom4j.DocumentHelper;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -222,7 +217,6 @@ public class KNAppOutticketService {
                 passengerId = getSamePassengerList(httpclient, cookie, orderInfo, defaultRequestConfig, memberId);
                 if (passengerId != null && passengerId.size() != 0 && "please login first".equals(passengerId.get(0))) {
                     logger.info(orderNo + "--登陆失效");
-//					this.synchronAccounInfo(accountInfo, "");
                     return;
                 }
             } catch (Exception e) {
@@ -286,6 +280,7 @@ public class KNAppOutticketService {
             String idExpires = "";
             if ("身份证".equals(idType)) {
                 idType = "NI";
+                // idType = "01";
             } else if ("护照".equals(idType)) {
                 idType = "PP";
                 idExpires = "2101-01-30";
@@ -322,11 +317,16 @@ public class KNAppOutticketService {
             post.setHeader("Content-Type", "application/json;charset=UTF-8");
             post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
             post.setHeader("Host", "wx.flycua.com");
-            if (!SysData.useAbuyunProxy) {
+            /*post.setHeader("Referer", "https://https://higo.flycua.com/hh/html/addPassenger.html");
+            post.setHeader("Origin", "https://higo.flycua.com");
+            post.setHeader("Content-Type", "application/json;charset=UTF-8");
+            post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
+            post.setHeader("Host", "higo.flycua.com");*/
+            /*if (!SysData.useAbuyunProxy) {
                 post.setHeader("Proxy-Authorization", "Basic " + Base64.encodeBase64String(
                         new StringBuilder(SysData.abuyunUser).append(":").append(SysData.abuyunPwd).toString().getBytes("utf-8")));
                 post.setHeader("Proxy-Connection", "keep-alive");
-            }
+            }*/
             post.setHeader("isB2C", "NO");
             post.setHeader("isWechat", "H5");
             CloseableHttpResponse response = httpclient.execute(target, post);
@@ -342,7 +342,7 @@ public class KNAppOutticketService {
             return null;
         }
         String cookie = accountInfo1.getLoginState();
-        if (StringUtil.isNotEmpty(cookie)) {
+        if (StringUtil.isNotEmpty(cookie) && cookie.contains("JSESSIONID")) {
             return handeLogin ? "已经登录" : cookie;
         }
         try {
@@ -401,9 +401,7 @@ public class KNAppOutticketService {
                     new StringBuilder(SysData.abuyunUser).append(":").append(SysData.abuyunPwd).toString().getBytes("utf-8")));
         }
         post.setHeader("Proxy-Connection", "keep-alive");
-
         CloseableHttpResponse response = httpclient.execute(post);
-
         back = EntityUtils.toString(response.getEntity(), "utf-8");
         JSONObject message = new JSONObject(back);
         String backDesc = message.get("errordesc").toString();
@@ -765,16 +763,16 @@ public class KNAppOutticketService {
     }
 
     public static void main(String[] args) {
-        /*OrderInfo orderInfo = new OrderInfo();
+        OrderInfo orderInfo = new OrderInfo();
         orderInfo.setId(1L);
         orderInfo.setOrderNo("402188280");
         orderInfo.setOrderStatus("抢票中");
-        orderInfo.setFlightNo("KN2975");
+        orderInfo.setFlightNo("KN2927");
         orderInfo.setDep("NAY");
-        orderInfo.setArr("HLD");
-        orderInfo.setDepTime("2019-03-04 09:05:00");
-        orderInfo.setOutPrice("648");
-        orderInfo.setGrabTime("2019-03-04 09:05:00");
+        orderInfo.setArr("CIH");
+        orderInfo.setDepTime("2019-05-01 09:05:00");
+        orderInfo.setOutPrice("1000");
+        orderInfo.setGrabTime("2019-04-01 09:05:00");
         List<PaxInfo> paxInfos = Lists.newArrayList();
         orderInfo.setPaxInfos(paxInfos);
         PaxInfo paxInfo = new PaxInfo();
@@ -801,7 +799,7 @@ public class KNAppOutticketService {
         Map<Long, AccountInfo> map = Maps.newHashMap();
         map.put(info.getId(), info);
         SysData.accountMap.put("KN", map);
-        new KNAppOutticketService().startCreatOrder(orderInfo, info, null, 0);*/
+        new KNAppOutticketService().startCreatOrder(orderInfo, info, null, 0);
     }
     public void startCreatOrder(OrderInfo orderInfo, AccountInfo accountInfo, List<String> paxIds, int retryTimes) {
         boolean isSuccess = false;
@@ -832,8 +830,8 @@ public class KNAppOutticketService {
             BasicCookieStore cookieStore = (BasicCookieStore) initPara.get("cookieStore");
             httpclient = builder.build();
             CloseableHttpResponse response = null;
-
             String cookie = "";
+            // cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
             String back = "";
             Map<String, String> resultMap = null;
             Map<String, String> verifyPostParam = SysData.verifyParamMap.get(orderInfo.getId());
@@ -905,10 +903,10 @@ public class KNAppOutticketService {
                 return;
             }
             ////////////////////////////////////////////////////
-            cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+           /* cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
             if (cookie == null) {
                 return;
-            }
+            }*/
             ///////////////////////////////////////////////
             back = flightSearchagain(cookie, orderInfo, builder, authCache, credsProvider, defaultRequestConfig, httpclient);
             logger.info(order_id + "--开始登陆");
@@ -918,32 +916,44 @@ public class KNAppOutticketService {
             InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
             try {
                 for (int i = 0; i < 5; i++) {
-                    cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+                    // cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+                    /*cookie = getCookie(httpclient, cookie, accountInfo, defaultRequestConfig);
                     if (cookie == null) {
                         logger.info(order_id + "--");
                         return;
-                    }
+                    }*/
                     resultMap = selectFlight(verifyPostParam, cookie, httpclient, defaultRequestConfig);
                     if (resultMap == null || resultMap.size() == 0) {
                         // login(accountInfo);
                         continue;
                     }
+                    if (resultMap.size() == 2) {
+                        break;
+                    }
                     String error = resultMap.get("error");
                     if (resultMap != null && StringUtil.isEmpty(error)) {
-                        login(accountInfo);
+                        // login(accountInfo);
                         break;
                     }
                     if ("请先登录".equals(error)) {
                         grabStatus = "";
                         InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
-                        // login(accountInfo);
-                        // return;
+                        cookie = getCookie(httpclient, cookie, accountInfo, defaultRequestConfig);
+                        if (cookie == null) {
+                            logger.info(order_id + "--");
+                            return;
+                        }
                         continue;
                     }
                     if ("查询结果已过期，请重新查询！".equals(error)) {
                         grabStatus = "查询结果已过期";
                         InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
                         // login(accountInfo);
+                        cookie = getCookie(httpclient, cookie, accountInfo, defaultRequestConfig);
+                        if (cookie == null) {
+                            logger.info(order_id + "--");
+                            return;
+                        }
                         // return;
                         continue;
                     }
@@ -1006,18 +1016,45 @@ public class KNAppOutticketService {
                 logger.info(order_id + "--添加乘客");
                 paxIds = new ArrayList<String>();
                 try {
-                    cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+                    /*cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                     if (cookie == null) {
                         logger.info(order_id + "--登陆失效");
                         return;
+                    }*/
+                    int i = 0;
+                    for (i = 0; i < 5 ; i++) {
+                        back = addPassengers(orderInfo, accountInfo, httpclient, cookie, defaultRequestConfig, paxIds);
+                        logger.info("添加乘客back：" + back);
+                        if (back.isEmpty()) {
+                            continue;
+                        }
+                        if (back.contains("please login first")) {
+                            cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+                            if (cookie == null) {
+                                logger.info(order_id + "--登陆失效");
+                                return;
+                            }
+                            continue;
+                        }
+                        if (back.contains("error")) {
+                            continue;
+                        }
+                        if (!back.contains("error")) {
+                            break;
+                        }
+                        Thread.sleep(2 * 1000);
                     }
-                    back = addPassengers(orderInfo, accountInfo, httpclient, cookie, defaultRequestConfig, paxIds);
-                    Thread.sleep(2 * 1000);
-                    cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+                    if ( i == 5) {
+                        if (back.contains("please login first")) {
+                            logger.error(order_id + "--添加乘客失败");
+                            return;
+                        }
+                    }
+                    /*cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                     if (cookie == null) {
                         logger.info(order_id + "--登陆失效");
                         return;
-                    }
+                    }*/
                     paxIds = getSamePassengerList(httpclient, cookie, orderInfo, defaultRequestConfig, memberId);
                     if (paxIds != null && paxIds.size() != 0 && "please login first".equals(paxIds.get(0))) {
                         logger.info(order_id + "--登陆失效");
@@ -1035,7 +1072,6 @@ public class KNAppOutticketService {
                     logger.error(order_id + "--乘客数量对应不上");
                     return;
                 }
-                ;
             }
             if (paxIds.size() != orderInfo.getPaxInfos().size()) {
                 logger.info(order_id + "--未获取到乘机人id");
@@ -1081,10 +1117,24 @@ public class KNAppOutticketService {
             String contactId = "";
             try {
                 cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
-                contactId = getContactId(cookie, defaultRequestConfig, httpclient, orderInfo, accountInfo);
-                if (StringUtil.isNotEmpty(contactId) && !contactId.contains("ERROR:")) {
-                    contactIdMap.put(memberKey, contactId);
+                int i = 0;
+                for (i = 0; i < 5 ; i++) {
+                    contactId = getContactId(cookie, defaultRequestConfig, httpclient, orderInfo, accountInfo);
+                    if (StringUtil.isNotEmpty(contactId) && !contactId.contains("ERROR:")) {
+                        contactIdMap.put(memberKey, contactId);
+                        break;
+                    }
+                    if (contactId.contains("ERROR:")) {
+                        continue;
+                    }
                 }
+                if ( i == 5) {
+                    if (contactId.contains("ERROR:")) {
+                        logger.info(order_id + "获取联系人Id失败");
+                        return;
+                    }
+                }
+
             } catch (Exception e) {
                 logger.info(order_id + "获取联系人Id异常");
                 logger.error("error", e);
@@ -1156,7 +1206,7 @@ public class KNAppOutticketService {
             grabStatus = "开始创建订单";
             InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
             int i = 0;
-            for (; i < 3; i++) {
+            for (; i < 5; i++) {
                 try {
                     cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                     // cookie = "JSESSIONID=E655C810B089AEA69B2224BC13BCA16D; Secure; __jsluid=9c5cf0fa70a4fbab655c8d1bb4ea605a; _gscu_1693774232=53479146hbijp056; _gscu_1166988165=53480333upz7k311; _gscbrs_1693774232=1; tokenId=9CBC7A21DFEF8141A77D78ACA51554D6A4AF77654043DAD638E9F93B378F94E16B05CE1060BCDC4130E6831A2C98188C307DC72E02E976D0D24F7AB558AC80A8; Secure; TY_SESSION_ID=777ab908-bdb9-4e18-b74d-7f431113795b; _gscs_1693774232=t5478797074qz7590|pv:6";
@@ -1171,7 +1221,7 @@ public class KNAppOutticketService {
                 if (StringUtil.isNotEmpty(back) && back.contains("503 Service")) {
                     logger.info(order_id + "请求结果503异常");
                     // break;
-                    // continue;
+                    continue;
                 }
                 if (StringUtil.isNotEmpty(back) && !back.contains("503 Service")) {
                     // logger.info(order_id + "请求结果503异常");
@@ -1395,11 +1445,11 @@ public class KNAppOutticketService {
             post.setHeader("Cookie", cookie);
             post.setHeader("Content-Type", "application/json;charset=UTF-8");
             post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
-            if (!SysData.useAbuyunProxy) {
+            /*if (!SysData.useAbuyunProxy) {
                 post.setHeader("Proxy-Authorization", "Basic " + Base64.encodeBase64String(
                         new StringBuilder(SysData.abuyunUser).append(":").append(SysData.abuyunPwd).toString().getBytes("utf-8")));
                 post.setHeader("Proxy-Connection", "keep-alive");
-            }
+            }*/
             post.setHeader("Host", "wx.flycua.com");
             post.setHeader("isB2C", "NO");
             post.setHeader("isWechat", "H5");
@@ -1675,7 +1725,6 @@ public class KNAppOutticketService {
         post.setEntity(entity);
         post.setHeader("Referer", "https://wx.flycua.com/h5/home.html");
         post.setHeader("Origin", "https://wx.flycua.com");
-        // cookie = "Secure; JSESSIONID=6616EA2C8FD0E8AE614FCCF3D13DC31C; Secure; _gscu_1693774232=53479146hbijp056; _gscu_1166988165=53480333upz7k311; __jsluid=df402ff8eac3c4071290581e554bf091; _gscbrs_1693774232=1; TY_SESSION_ID=8ddca21a-a484-410f-bddf-0a241dea91b9; tokenId=31DE632B9F896C9CA77D78ACA51554D6A4AF77654043DAD638E9F93B378F94E1FBA1ACD68493A9D2E8F83763E6AE37FD0C92CD37F13F17C47FAEC3B4D1348D48; Secure; _gscs_1693774232=t54701463mq3qbf82|pv:9";
         post.setHeader("Cookie", cookie);
         post.setHeader("Content-Type", "application/json;charset=UTF-8");
         post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
@@ -1689,7 +1738,8 @@ public class KNAppOutticketService {
         post.setHeader("isWechat", "H5");
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
-        //outPrint(target,post,null,cookie,jsonObject,back);
+        logger.error("选择航班back：" + back);
+        back = "{\"bindRRFT\":true,\"commonRes\":{\"isOk\":true},\"contacts\":[{\"customerId\":0,\"id\":0,\"mobile\":\"13037284859\",\"name\":\"张晓峰\"}],\"contactsSize\":1,\"customers\":[{\"id\":0}],\"customersSize\":1,\"gmjc\":false,\"goFlightInfos\":{\"arrivalTime\":\"2019-05-01 13:10\",\"departTime\":\"2019-05-01 11:35\",\"dstAirport\":{\"airportCode\":\"CIH\",\"airportName\":\"长治\"},\"flightSegs\":[{\"arrivalTerminal\":\"--\",\"arrivalTime\":\"2019-05-01 13:10\",\"brandSeg\":[{\"brandCode\":\"CYY\",\"brandInfo\":{\"text\":\"大众游\"},\"cabinCode\":\"Y\",\"canRefundChange\":{\"text\":\"可退可改\"},\"changeRuleText\":\"航班规定离站时间前168小时（含）之前提出,收取客票价20%的变更费; 航班规定离站时间前168小时至72小时（含）之内提出,收取客票价30%的变更费; 航班规定离站时间前72小时至24小时（含）之内提出,收取客票价40%的变更费; 航班规定离站时间前24小时之后提出,收取客票价50%的变更费。\",\"chdChangeRuleText\":\" 航班规定离站时间前168小时（含）之前提出,收取客票价20%的变更费; 航班规定离站时间前168小时至72小时（含）之内提出,收取客票价30%的变更费; 航班规定离站时间前72小时至24小时（含）之内提出,收取客票价40%的变更费; 航班规定离站时间前24小时之后提出,收取客票价50%的变更费。 \",\"chdCheckBaggage\":{\"description\":\"20KG，尺寸40*60*100cm\",\"sourceUrl\":\"免费托运重量不超过20KG且体积不超过40*60*100cm的托运行李\",\"text\":\"托运行李20KG\"},\"chdRefundRuleText\":\"航班规定离站时间前168小时（含）之前提出, 收取客票价30%的退票费;航班规定离站时间前168小时至72小时（含）之内提出, 收取客票价40%的退票费;航班规定离站时间前72小时至24小时（含）之内提出, 收取客票价50%的退票费;航班规定离站时间前24小时之后提出, 不允许退票，仅限退还已经代为实际征收的民航发展基金和燃油附加费。\",\"checkBaggage\":{\"description\":\"20KG，尺寸40*60*100cm\",\"sourceUrl\":\"免费托运重量不超过20KG且体积不超过40*60*100cm的托运行李\",\"text\":\"托运行李20KG\"},\"chooseSeat\":true,\"connectRuleText\":\"中转联程机票退改规则说明:联程客票中包含的所有航段同时办理退票的,按照各航段对应舱位的退票规则办理;联程客票仅部分航段退票的，仅退换该航段实际收取的相应税费。\",\"defaultSelected\":\"YES\",\"discount\":\"9.88\",\"gmjcChangeRuleText\":\"\",\"gmjcRefundRuleText\":\"\",\"handBaggage\":{\"description\":\"10KG，尺寸20*30*40cm\",\"sourceUrl\":\"免费携带重量不超过10KG且体积不超过20*30*40cm的手提行李\",\"text\":\"手提行李10KG\"},\"infChangeRuleText\":\"--,婴儿改期免收改期手续费\",\"infRefundOrChangeRuleText\":\"持婴儿票的旅客要求变更、退票，均免收手续费\",\"infRefundRuleText\":\"--,退票免收退票手续费\",\"price\":[{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"490\",\"psgType\":\"GMJC\"},{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"988\",\"psgType\":\"ADT\"},{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"490\",\"psgType\":\"CHD\"},{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"100\",\"psgType\":\"INF\"}],\"pricePointUUID\":\"BhwcOXx9fTkcOXd8d3I5dA==\",\"priceSize\":4,\"redPaperAmount\":{\"text\":\"成行后送30元红包\"},\"redPaperRuleText\":\"大众游产品成行后赠送票价3%的红包\",\"refundOrChangeTicketRule\":{\"adtRefundOrChangeTicketFeeList\":[{\"changeFree\":\"¥198/人\",\"description\":\"航班规定离站时间前168小时（含）之前提出\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥296/人\",\"timeType\":\"-8760--168\"},{\"changeFree\":\"¥296/人\",\"description\":\"航班规定离站时间前168小时至72小时（含）之内提出\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥395/人\",\"timeType\":\"-168--72\"},{\"changeFree\":\"¥395/人\",\"description\":\"航班规定离站时间前72小时至24小时（含）之内提出\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥494/人\",\"timeType\":\"-72--24\"},{\"changeFree\":\"¥494/人\",\"description\":\"航班规定离站时间前24小时之后提出\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥988/人\",\"timeType\":\"-24-8760\"}],\"adtRefundOrChangeTicketFeeListSize\":4,\"chdRefundOrChangeTicketFeeList\":[{\"changeFree\":\"¥98/人\",\"description\":\"航班规定离站时间前168小时（含）之前提出\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥147/人\",\"timeType\":\"-8760--168\"},{\"changeFree\":\"¥147/人\",\"description\":\"航班规定离站时间前168小时至72小时（含）之内提出\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥196/人\",\"timeType\":\"-168--72\"},{\"changeFree\":\"¥196/人\",\"description\":\"航班规定离站时间前72小时至24小时（含）之内提出\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥245/人\",\"timeType\":\"-72--24\"},{\"changeFree\":\"¥245/人\",\"description\":\"航班规定离站时间前24小时之后提出\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥490/人\",\"timeType\":\"-24-8760\"}],\"chdRefundOrChangeTicketFeeListSize\":4,\"gmjcRefundOrChangeTicketFeeList\":[{\"changeFree\":\"¥0/人\",\"description\":\"--\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥0/人\",\"timeType\":\"-8760--168\"},{\"changeFree\":\"¥0/人\",\"description\":\"--\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥0/人\",\"timeType\":\"-168--72\"},{\"changeFree\":\"¥0/人\",\"description\":\"--\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥0/人\",\"timeType\":\"-72--24\"},{\"changeFree\":\"¥0/人\",\"description\":\"--\",\"endorseRule\":\"不予签转\",\"refundFree\":\"¥0/人\",\"timeType\":\"-24-8760\"}],\"gmjcRefundOrChangeTicketFeeListSize\":4,\"infRefundOrChangeTicketFeeListSize\":0},\"refundRuleText\":\"航班规定离站时间前168小时（含）之前提出, 收取客票价30%的退票费;航班规定离站时间前168小时至72小时（含）之内提出, 收取客票价40%的退票费;航班规定离站时间前72小时至24小时（含）之内提出, 收取客票价50%的退票费;航班规定离站时间前24小时之后提出, 不允许退票，仅限退还已经代为实际征收的民航发展基金和燃油附加费。\",\"remaindNum\":\">10张\"}],\"brandSegSize\":1,\"canSeat\":true,\"civilAviationPrice\":\"1000\",\"departTerminal\":\"--\",\"departTime\":\"2019-05-01 11:35\",\"dstAirport\":{\"airportCode\":\"CIH\",\"airportName\":\"长治\"},\"flightMark\":\"\",\"flightNo\":\"KN2927\",\"isCn\":true,\"orgAirport\":{\"airportCode\":\"NAY\",\"airportName\":\"北京南苑\"},\"planeType\":\"73S\",\"punctualRate\":\"历史准点率64%\",\"segmentType\":0,\"stopAirportsSize\":0,\"totalTime\":\"1h35m\",\"transpart\":\"1\"}],\"flightSegsSize\":1,\"flyTime\":\"1h35m\",\"orgAirport\":{\"airportCode\":\"NAY\",\"airportName\":\"北京南苑\"},\"totalAmount\":\"988\",\"transferAirportSize\":0,\"transferOrNot\":\"NO\"},\"passengers\":[{\"ancillaryGroupsSize\":0,\"birthday\":\"1989-08-04\",\"customerId\":0,\"email\":\"\",\"id\":42432829,\"idNo\":\"152224198908049211\",\"idType\":\"NI\",\"mobile\":\"13037284859\",\"name\":\"汤琪\",\"nation\":\"CN\",\"passengerType\":\"ADT\",\"selfTag\":\"0\",\"sex\":\"0\",\"ticketNumbersSize\":0},{\"ancillaryGroupsSize\":0,\"birthday\":\"1988-09-13\",\"customerId\":0,\"email\":\"\",\"id\":42416556,\"idNo\":\"220621198809132414\",\"idType\":\"NI\",\"mobile\":\"13037284859\",\"name\":\"尹相前\",\"nation\":\"CN\",\"passengerType\":\"ADT\",\"selfTag\":\"0\",\"sex\":\"0\",\"ticketNumbersSize\":0},{\"ancillaryGroupsSize\":0,\"birthday\":\"1995-02-28\",\"customerId\":0,\"email\":\"\",\"id\":42403465,\"idNo\":\"360481199502280034\",\"idType\":\"NI\",\"mobile\":\"13037284859\",\"name\":\"刘御铎\",\"nation\":\"CN\",\"passengerType\":\"ADT\",\"selfTag\":\"0\",\"sex\":\"0\",\"ticketNumbersSize\":0},{\"ancillaryGroupsSize\":0,\"birthday\":\"1995-08-13\",\"customerId\":0,\"email\":\"\",\"id\":-5,\"idNo\":\"362428199508132112\",\"idType\":\"NI\",\"mobile\":\"13037284859\",\"name\":\"张晓峰\",\"nation\":\"CN\",\"passengerType\":\"ADT\",\"selfTag\":\"1\",\"sex\":\"0\",\"ticketNumbersSize\":0}],\"passengersSize\":4,\"rrftNotice\":\"您购买的是大众游机票产品，此产品退票手续费较高，起飞前24小时后申请退票将收取票面价100%的退票手续费，我们为您推荐退票险，可以赔付退票手续费的70%。\",\"taxs\":[{\"airline\":\"KN\",\"amount\":{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"0\",\"psgType\":\"INF\"},\"arrAirport\":{\"airportCode\":\"CIH\"},\"code\":\"YQ\",\"depAirport\":{\"airportCode\":\"NAY\"},\"flightNo\":\"2927\",\"passengerType\":\"INF\",\"typeDesc\":\"燃油附加费\"},{\"airline\":\"KN\",\"amount\":{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"50\",\"psgType\":\"ADT\"},\"arrAirport\":{\"airportCode\":\"CIH\"},\"code\":\"CN\",\"depAirport\":{\"airportCode\":\"NAY\"},\"flightNo\":\"2927\",\"passengerType\":\"ADT\",\"typeDesc\":\"民航基金\"},{\"airline\":\"KN\",\"amount\":{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"50\",\"psgType\":\"GMJC\"},\"arrAirport\":{\"airportCode\":\"CIH\"},\"code\":\"CN\",\"depAirport\":{\"airportCode\":\"NAY\"},\"flightNo\":\"2927\",\"passengerType\":\"GMJC\",\"typeDesc\":\"民航基金\"},{\"airline\":\"KN\",\"amount\":{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"0\",\"psgType\":\"INF\"},\"arrAirport\":{\"airportCode\":\"CIH\"},\"code\":\"CN\",\"depAirport\":{\"airportCode\":\"NAY\"},\"flightNo\":\"2927\",\"passengerType\":\"INF\",\"typeDesc\":\"民航基金\"},{\"airline\":\"KN\",\"amount\":{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"0\",\"psgType\":\"CHD\"},\"arrAirport\":{\"airportCode\":\"CIH\"},\"code\":\"CN\",\"depAirport\":{\"airportCode\":\"NAY\"},\"flightNo\":\"2927\",\"passengerType\":\"CHD\",\"typeDesc\":\"民航基金\"},{\"airline\":\"KN\",\"amount\":{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"0\",\"psgType\":\"GMJC\"},\"arrAirport\":{\"airportCode\":\"CIH\"},\"code\":\"YQ\",\"depAirport\":{\"airportCode\":\"NAY\"},\"flightNo\":\"2927\",\"passengerType\":\"GMJC\",\"typeDesc\":\"燃油附加费\"},{\"airline\":\"KN\",\"amount\":{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"0\",\"psgType\":\"ADT\"},\"arrAirport\":{\"airportCode\":\"CIH\"},\"code\":\"YQ\",\"depAirport\":{\"airportCode\":\"NAY\"},\"flightNo\":\"2927\",\"passengerType\":\"ADT\",\"typeDesc\":\"燃油附加费\"},{\"airline\":\"KN\",\"amount\":{\"currency\":\"CNY\",\"currencyDesc\":\"￥\",\"price\":\"0\",\"psgType\":\"CHD\"},\"arrAirport\":{\"airportCode\":\"CIH\"},\"code\":\"YQ\",\"depAirport\":{\"airportCode\":\"NAY\"},\"flightNo\":\"2927\",\"passengerType\":\"CHD\",\"typeDesc\":\"燃油附加费\"}],\"taxsSize\":8}";
         if (StringUtil.isNotEmpty(back) && back.contains("503 Service Temporarily Unavailable")) {
             resultMap.put("error", "503异常重试");
             return resultMap;
@@ -1784,6 +1834,7 @@ public class KNAppOutticketService {
     }
 
     private String getContactId(String cookie, RequestConfig defaultRequestConfig, CloseableHttpClient httpclient, OrderInfo orderInfo, AccountInfo accountInfo) throws Exception {
+        logger.error("getContactId : cookie:" + cookie);
         String linkMan = accountInfo.getContact();
         String mobile = accountInfo.getTelPhone();
         if (StringUtil.isNotEmpty(mobile)) {
@@ -1811,6 +1862,8 @@ public class KNAppOutticketService {
         post.setHeader("isWechat", "H5");
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
+        logger.info("获取联系人Id:" + back);
+        // back = "{\"result\":\"ok\",\"errorCode\":null,\"errorMsg\":null,\"msg\":\"2797878\"}";
         logger.info(orderInfo.getOrderNo() + "verifyContactResult:" + back);
         JSONObject verifyContactObj = new JSONObject(back);
         String msg = "";
@@ -1853,13 +1906,13 @@ public class KNAppOutticketService {
         orderConfirmPostParam.append("]}");
         // append(",\"carGroups\":[]")
         post.setConfig(defaultRequestConfig);
-        HttpHost target = new HttpHost("wx.flycua.com", 443, "https");
+        HttpHost target = new HttpHost("m.flycua.com", 443, "https");
         StringEntity entity = new StringEntity(orderConfirmPostParam.toString(), Charset.forName("UTF-8"));
         post.setEntity(entity);
-        post.setHeader("Referer", "https://wx.flycua.com/h5/");
+        post.setHeader("Referer", "https://m.flycua.com/h5/");
         post.setHeader("Content-Type", "application/json;charset=UTF-8");
-        post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
-        post.setHeader("Host", "wx.flycua.com");
+        post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36");
+        post.setHeader("Host", "m.flycua.com");
         post.setHeader("Cookie", cookie);
         if (!SysData.useAbuyunProxy) {
             post.setHeader("Proxy-Authorization", "Basic " + Base64.encodeBase64String(
@@ -1868,6 +1921,7 @@ public class KNAppOutticketService {
         }
         post.setHeader("isB2C", "NO");
         post.setHeader("isWechat", "H5");
+        post.setHeader("X-Tingyun-Id", "ksUObdTmc7c;r=378086754");
         CloseableHttpResponse response = httpclient.execute(target, post);
         String back = EntityUtils.toString(response.getEntity(), "utf-8");
         return back;
@@ -2072,45 +2126,10 @@ public class KNAppOutticketService {
 
     private String getMemberId(CloseableHttpClient httpclient, String cookie,
                                RequestConfig defaultRequestConfig, String orderId) throws Exception {
-        // 获取用户id
-        /*HttpPost post = new HttpPost("/ffp/ssologin");
-        String jsonObject = "{\"mode\":\"login\"}";
-        jsonObject = aesInvokeFunction("encrypt", jsonObject);
-        HttpHost target = new HttpHost("higo.flycua.com", 443, "https");
-        StringEntity entity = new StringEntity(jsonObject.toString(), Charset.forName("UTF-8"));
-        post.setConfig(defaultRequestConfig);
-        post.setEntity(entity);
-        post.setHeader("Referer", "https://higo.flycua.com/hh/index.html");
-        post.setHeader("Cookie", cookie);
-        post.setHeader("Content-Type", "application/json;charset=UTF-8");
-        post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
-        post.setHeader("Host", "higo.flycua.com");
-        if (!SysData.useAbuyunProxy) {
-            post.setHeader("Proxy-Authorization", "Basic " + Base64.encodeBase64String(
-                    new StringBuilder(SysData.abuyunUser).append(":").append(SysData.abuyunPwd).toString().getBytes("utf-8")));
-            post.setHeader("Proxy-Connection", "keep-alive");
-        }
-        CloseableHttpResponse response = httpclient.execute(target, post);
-        String back = EntityUtils.toString(response.getEntity());
-
-        JSONObject json = new JSONObject(back);
-        String errordesc = json.getString("errordesc");
-        errordesc = aesInvokeFunction("decrypt", errordesc);
-        if (StringUtil.isNotEmpty(errordesc) && errordesc.contains("用户或密码不正确")) {
-            return "用户或密码不正确";
-        }
-        if (StringUtil.isNotEmpty(errordesc) && errordesc.contains("用户或密码不正确")) {
-            return "用户或密码不正确";
-        }
-        if (StringUtil.isNotEmpty(errordesc) && errordesc.contains("please login first")) {
-            return "please login first";
-        }
-        JSONObject errordescJson = new JSONObject(errordesc);
-        String memberId = errordescJson.getString("memberId");*/
         String memberId = "";
         String[] c = cookie.split(";");
         for (String a: c) {
-            if (a.contains(memberId)) {
+            if (a.contains("memberId")) {
                 memberId = a.split("=")[1];
             }
         }
@@ -2172,11 +2191,11 @@ public class KNAppOutticketService {
             post.setHeader("Content-Type", "application/json;charset=UTF-8");
             post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
             post.setHeader("Host", "wx.flycua.com");
-            if (!SysData.useAbuyunProxy) {
+            /*if (!SysData.useAbuyunProxy) {
                 post.setHeader("Proxy-Authorization", "Basic " + Base64.encodeBase64String(
                         new StringBuilder(SysData.abuyunUser).append(":").append(SysData.abuyunPwd).toString().getBytes("utf-8")));
                 post.setHeader("Proxy-Connection", "keep-alive");
-            }
+            }*/
             response = httpclient.execute(target, post);
             back = EntityUtils.toString(response.getEntity());
         } catch (Exception e) {

@@ -54,6 +54,7 @@ public class GrabListPanel extends JPanel{
 	private static JPanel panel_account;
 	private static JPanel panel_log;
 
+	private  static int i = 0;
 	public GrabListPanel() {
 		this.setLayout(null);
 		initdata(null, "0");
@@ -80,9 +81,12 @@ public class GrabListPanel extends JPanel{
 				String title = source.getTitleAt(source.getSelectedIndex());
 				if ("官网账号".equals(title)) {
 					JRootPane rootPane = source.getRootPane();
-					// GrabListPanel instance = (GrabListPanel) rootPane.findComponentAt(2, 25);
-					GrabListPanel instance = new GrabListPanel();
-					instance.queryAccount();
+					//GrabListPanel instance = (GrabListPanel) rootPane.findComponentAt(2, 25);
+//					GrabListPanel instance = new GrabListPanel();
+//					instance.queryAccount();
+
+					List<AccountInfo> accountInfos = SqliteHander.queryAccountInfo();
+					initaccount(accountInfos, "1");
 				}
 			}
 		});
@@ -116,8 +120,9 @@ public class GrabListPanel extends JPanel{
 			panel_account.add(getAccountTable(accountInfos), 0);
 			panel_account.add(getOperatPanel(), 1);
 		} else {
+
 			panel_account.remove(0);
-			panel_account.add(getAccountTable(accountInfos),1);
+			panel_account.add(getAccountTable(accountInfos),0);
 			// panel_account.updateUI();
 			panel_account.revalidate();
 		}
@@ -303,7 +308,7 @@ public class GrabListPanel extends JPanel{
 	public JPanel getAccountTable(List<AccountInfo> accountInfos) {
 		JPanel panel = new JPanel(new BorderLayout());
 		panel.setBounds(0,0,1085, 190);
-		Object[] colNames = {"账号Id","序号","航司","账号","密码","联系人","联系电话","登陆状态","操作"};
+		Object[] colNames = {"账号Id1","序号","航司","账号","密码","联系人","联系电话","登陆状态","操作"};
 		Object[][] rowDatas = this.getAccountRowDatas(accountInfos, colNames.length);
 		DefaultTableModel tableModel = new DefaultTableModel(rowDatas, colNames);
 		tableModel.fireTableDataChanged();
@@ -392,11 +397,12 @@ public class GrabListPanel extends JPanel{
 		jLabel_delete.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				JPanel jPanel = (JPanel) panel_account.getComponent(0);
 				// JScrollPane scroll = (JScrollPane) jPanel.getComponentAt(0, 3);
-				JScrollPane scroll = new JScrollPane(/*jPanel.getComponentAt(0, 3)*/ jPanel);
-				JViewport viewport = (JViewport) scroll.getComponent(0);
-				JTable table = (JTable) viewport.getComponent(0);
+				// panel_account.gett
+				JScrollPane scroll = new JScrollPane(/*jPanel.getComponentAt(0, 3)*/ panel_account);
+				// JViewport viewport = (JViewport) scroll.getComponent(0);a
+				// viewport.getr
+				JTable table = (JTable) scroll.getComponent(0);
 				//JTable table = new JTable(scroll.);
 				List<Integer> selectedRows = new ArrayList();
 				for (int i = 0; i < table.getRowCount(); i++) {

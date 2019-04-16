@@ -106,7 +106,7 @@ public class InitUtil {
 
 		RequestConfig defaultRequestConfig = RequestConfig.custom().setSocketTimeout(400000)
 				.setConnectTimeout(400000).setConnectionRequestTimeout(400000)
-				//.setProxy(proxy)
+				.setProxy(proxy)
 				.setExpectContinueEnabled(false).setStaleConnectionCheckEnabled(true).build();
 		HttpClientBuilder builder = null;
 		builder = HttpClients.custom().setSSLSocketFactory(sslsf).setDefaultCookieStore(cookieStore)

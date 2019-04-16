@@ -82,7 +82,7 @@ public class GrabTBEditor extends DefaultCellEditor implements TableCellRenderer
 						MsgUtil.confirmRemind("取消成功");
 						JLabel component = (JLabel) e.getSource();
 						// JRootPane rootPane = component.getRootPane();
-						GrabListPanel rootPane = new GrabListPanel();
+						GrabListPanel rootPane = SysData.grabListPanel;
 						GrabListPanel.loadGrabData( rootPane, "0");
 					} else {
 						MsgUtil.errorRemind("取消失败");
