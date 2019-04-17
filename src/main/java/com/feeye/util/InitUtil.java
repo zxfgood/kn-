@@ -256,7 +256,7 @@ public class InitUtil {
 				e.printStackTrace();
 			}
 		}
-		String log = SysData.sdf_datetime.format(new Date())+"--"+className+".class--订单号("+orderInfo.getOrderNo()+")--"+content;
+		String log = SysData.sdf_datetime.format(new Date())+"--订单号("+orderInfo.getOrderNo()+")--"+content;
 		synchLog(log);
 		if (msgInform) {
 //			playMusic();

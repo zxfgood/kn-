@@ -50,84 +50,88 @@ public class OutticketHandler {
 	// long为订单id，刷取的则为true，订单号对应的刷取状态
 	public static Map<Long, Boolean> grabState = Maps.newHashMap();
 
-	private  volatile  String createFlag = "sucess";
 	// 使用scheduleAtFixedRate()方法实现周期性执行
 	public void handleOrder() {
 		timerService.scheduleAtFixedRate(new Runnable() {
 			@Override
 			public void run() {
-				if (!SysData.grabPriceStart) {
-					return;
-				}
-				// 获取抢票订单的信息
-				Collection<OrderInfo> values = SysData.grabOrderMap.values();
-				List<OrderInfo> orderInfos = Lists.newArrayList();
-				if (!values.isEmpty()) {
-					for (OrderInfo value : values) {
-						OrderInfo clone = value.clone();
-						if (clone!=null) {
-							orderInfos.add(clone);
-						}
-					}
-				}
-				Iterator<OrderInfo> iterator = orderInfos.iterator();
-				while (iterator.hasNext()) {
-					OrderInfo next = iterator.next();
-					// 当抢到价格不再刷票
-					if (next.getGrabOver()!=null&&next.getGrabOver()) {
-						iterator.remove();
-					}
-				}
-                      // 一个订单号对应多个航班信息
-				Map<String, List<String>> flightGrabMap = Maps.newHashMap();
-				for (OrderInfo orderInfo : orderInfos) {
-					// 航班号 + 出发地 + 到达地 + 出发时间
-					String flightKey = orderInfo.getFlightNo()+"_"+orderInfo.getDep()+"_"+orderInfo.getArr()+"_"+orderInfo.getDepTime();
-					List<String> flights = flightGrabMap.get(flightKey);
-					if (flights==null) {
-						flights = Lists.newArrayList();
-					}
-					// 抢票设置价格 + 订单号
-					flights.add(orderInfo.getId()+"-"+orderInfo.getGrabPrice()+"-"+orderInfo.getOrderNo());
-					// 一个航班对应的多个订单，key代表航班信息，flight是订单信息
-					flightGrabMap.put(flightKey, flights);
-				}
-				Iterator<String> ite = taskServiceMap.keySet().iterator();
-				while (ite.hasNext()) {
-					if (flightGrabMap.get(ite.next())==null) {
-						ThreadPoolExecutor executor = taskServiceMap.get(ite.next());
-						if (executor!=null) {
-							executor.shutdownNow();
-							ite.remove();
-						}
-					}
-				}
-                      // 航班号 + 出发地 + 到达地 + 出发时间
-				for (String flightInfo : flightGrabMap.keySet()) {
-					ThreadPoolExecutor executor = taskServiceMap.get(flightInfo);
-					if (executor==null) {
-						// newFixedThreadPool() 创建一个可重用固定线程数的线程池
-						executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(SysData.threadNum);
-						taskServiceMap.put(flightInfo, executor);
-					}
-					if (SysData.threadNum!=executor.getCorePoolSize()) {
-						// 在没有任务到来之前就创建corePoolSize个线程或者一个线程
-						executor.setCorePoolSize(SysData.threadNum);
-						executor.setMaximumPoolSize(SysData.threadNum);
-					}
-					int needExeNum = SysData.threadNum-executor.getActiveCount();
-					if (needExeNum<1) {
+				try {
+					if (!SysData.grabPriceStart) {
 						return;
 					}
-					GrabTask grabTask = new GrabTask(flightInfo, flightGrabMap.get(flightInfo));
-					// 启动线程开始刷票
-					for (int i = 0; i < needExeNum; i++) {
-						try {
-							Future<String> submit = executor.submit(grabTask);
-						} catch (Exception e) {
-							e.printStackTrace();
+					// 获取抢票订单的信息
+					Collection<OrderInfo> values = SysData.grabOrderMap.values();
+					List<OrderInfo> orderInfos = Lists.newArrayList();
+					if (!values.isEmpty()) {
+						for (OrderInfo value : values) {
+							OrderInfo clone = value.clone();
+							if (clone!=null) {
+								orderInfos.add(clone);
+							}
 						}
 					}
+					Iterator<OrderInfo> iterator = orderInfos.iterator();
+					while (iterator.hasNext()) {
+						OrderInfo next = iterator.next();
+						// 当抢到价格不再刷票
+						if (next.getGrabOver()!=null&&next.getGrabOver()) {
+							iterator.remove();
+						}
+					}
+					// 一个订单号对应多个航班信息
+					Map<String, List<String>> flightGrabMap = Maps.newHashMap();
+					for (OrderInfo orderInfo : orderInfos) {
+						// 航班号 + 出发地 + 到达地 + 出发时间
+						String flightKey = orderInfo.getFlightNo()+"_"+orderInfo.getDep()+"_"+orderInfo.getArr()+"_"+orderInfo.getDepTime();
+						List<String> flights = flightGrabMap.get(flightKey);
+						if (flights==null) {
+							flights = Lists.newArrayList();
+						}
+						// 抢票设置价格 + 订单号
+						flights.add(orderInfo.getId()+"-"+orderInfo.getGrabPrice()+"-"+orderInfo.getOrderNo());
+						// 一个航班对应的多个订单，key代表航班信息，flight是订单信息
+						flightGrabMap.put(flightKey, flights);
+					}
+					Iterator<String> ite = taskServiceMap.keySet().iterator();
+					while (ite.hasNext()) {
+						String next = ite.next();
+						if (flightGrabMap.get(next)==null) {
+							ThreadPoolExecutor executor = taskServiceMap.get(next);
+							if (executor!=null) {
+								executor.shutdownNow();
+								ite.remove();
+							}
+						}
+					}
+					// 航班号 + 出发地 + 到达地 + 出发时间
+					for (String flightInfo : flightGrabMap.keySet()) {
+						ThreadPoolExecutor executor = taskServiceMap.get(flightInfo);
+						if (executor==null) {
+							// newFixedThreadPool() 创建一个可重用固定线程数的线程池
+							executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(SysData.threadNum);
+							taskServiceMap.put(flightInfo, executor);
+						}
+						if (SysData.threadNum!=executor.getCorePoolSize()) {
+							// 在没有任务到来之前就创建corePoolSize个线程或者一个线程
+							executor.setCorePoolSize(SysData.threadNum);
+							executor.setMaximumPoolSize(SysData.threadNum);
+						}
+						int needExeNum = SysData.threadNum-executor.getActiveCount();
+						if (needExeNum<1) {
+							return;
+						}
+						GrabTask grabTask = new GrabTask(flightInfo, flightGrabMap.get(flightInfo));
+						// 启动线程开始刷票
+						for (int i = 0; i < needExeNum; i++) {
+							try {
+								Future<String> submit = executor.submit(grabTask);
+							} catch (Exception e) {
+								e.printStackTrace();
+							}
+						}
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 			}
 		}, 5, 2, TimeUnit.SECONDS);
@@ -204,7 +208,7 @@ public class OutticketHandler {
 									orderInfo.setDepTime(depTime);
 									SqliteHander.modifyObjInfo(orderInfo, flieds);
 								}
-								InitUtil.orderRemind(orderInfo.getId(), "价格刷取", "抢票价格:"+grabPrice+"--app:"+appPrice, false, "OutticketHandler");
+								InitUtil.orderRemind(orderInfo.getId(), "价格刷取", "抢票价格:"+grabPrice+"--app:"+appPrice, false, "");
 								orderInfo.setAppPrice(appPrice);
 								orderInfo.setGrabTime(SysData.sdf_datetime.format(new Date()));
 								if (Float.parseFloat(appPrice)<=Float.parseFloat(grabPrice)) {
@@ -236,7 +240,7 @@ public class OutticketHandler {
 									orderInfo.setBirths(flightInfo);
 									// 创单
 									outticketService.execute(new OutticketTask(orderInfo));
-									InitUtil.orderRemind(orderInfo.getId(), "抢票价格:"+grabPrice+"--app:"+appPrice+",价格刷取成功", "价格刷取成功", true, "OutticketHandler");
+									InitUtil.orderRemind(orderInfo.getId(), "抢票价格:"+grabPrice+"--app:"+appPrice+",价格刷取成功", "价格刷取成功", true, "");
 									String content = "订单号--"+orderInfo.getOrderNo()+"--抢票价格:"+grabPrice+"--app:"+appPrice+",价格刷取成功";
 									InitUtil.sendSMS(SysData.phonenum, content);
 									String emailSubject = "订单号--"+orderInfo.getOrderNo() + "抢票结果"+ System.currentTimeMillis();

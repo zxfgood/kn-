@@ -180,7 +180,7 @@ public class KNAppOutticketService {
                 memberId = "";
                 try {
                     cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, orderNo, false);
-                    memberId = getMemberId(httpclient, cookie, defaultRequestConfig, orderNo);
+                    memberId = getMemberId(cookie);
                     if ("用户或密码不正确".equals(memberId) || "please login first".equals(memberId)) {
 //					this.synchronAccounInfo(accountInfo, "");
                         logger.info(orderNo + "--用户或密码不正确");
@@ -270,12 +270,12 @@ public class KNAppOutticketService {
             if (StringUtil.isNotEmpty(birthday) && !"null".equals(birthday)) {
                 birthday = birthday.substring(0, 10);
             }
-            String sex = paxInfo.getSex();
-            if ("男".equals(sex)) {
+            String sex = "0";
+            /*if ("男".equals(sex)) {
                 sex = "0";
             } else {
                 sex = "1";
-            }
+            }*/
             String idType = paxInfo.getCardType();
             String idExpires = "";
             if ("身份证".equals(idType)) {
@@ -286,6 +286,12 @@ public class KNAppOutticketService {
                 idExpires = "2101-01-30";
             } else {
                 idType = "ID";
+            }
+            if (idType.equals("NI")) {
+                char s = paxInfo.getCardNo().charAt(16);
+                if ((Integer.valueOf(s) % 2) == 0 ) {
+                    sex = "1";
+                }
             }
             String numid = paxInfo.getCardNo();
             String nameType = "CN";
@@ -317,16 +323,6 @@ public class KNAppOutticketService {
             post.setHeader("Content-Type", "application/json;charset=UTF-8");
             post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
             post.setHeader("Host", "wx.flycua.com");
-            /*post.setHeader("Referer", "https://https://higo.flycua.com/hh/html/addPassenger.html");
-            post.setHeader("Origin", "https://higo.flycua.com");
-            post.setHeader("Content-Type", "application/json;charset=UTF-8");
-            post.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0");
-            post.setHeader("Host", "higo.flycua.com");*/
-            /*if (!SysData.useAbuyunProxy) {
-                post.setHeader("Proxy-Authorization", "Basic " + Base64.encodeBase64String(
-                        new StringBuilder(SysData.abuyunUser).append(":").append(SysData.abuyunPwd).toString().getBytes("utf-8")));
-                post.setHeader("Proxy-Connection", "keep-alive");
-            }*/
             post.setHeader("isB2C", "NO");
             post.setHeader("isWechat", "H5");
             CloseableHttpResponse response = httpclient.execute(target, post);
@@ -410,7 +406,7 @@ public class KNAppOutticketService {
         String memberId = backMess.get("memberId").toString();
         String errorcode = backMess.get("errorcode").toString();
         if (errorcode.equals("0000")) {
-            InitUtil.orderRemind(1L,"登录成功","登录成功", false, KNAppOutticketService.class.toString());
+            InitUtil.orderRemind(1L,"登录成功","登录成功", false, "");
         }
         logger.info("登录返回:" + back);
         if (StringUtil.isEmpty(back)) {
@@ -812,7 +808,7 @@ public class KNAppOutticketService {
             String grabStatus = "开始创单";
             String logContent = "开始创单";
             if (++retryTimes == 1) {
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "");
             }
             Map<String, Object> initPara = InitUtil.getInitPara();
             if ("false".equals(initPara.get("result"))) {
@@ -820,7 +816,7 @@ public class KNAppOutticketService {
                 grabStatus = "创单失败";
                 logContent = "未获取到代理ip";
                 // System.out.println("代理IP：" + "123");
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "");
                 return;
             }
             HttpClientBuilder builder = (HttpClientBuilder) initPara.get("builder");
@@ -842,13 +838,13 @@ public class KNAppOutticketService {
                     logger.info(order_id + "开始查询航班");
                     grabStatus = "开始查询航班";
                     logContent = "开始查询航班";
-                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "");
                     // 查询航班
                     resultMap = flightSearch(defaultRequestConfig, orderInfo, httpclient, cookieStore);
                     if (resultMap == null || resultMap.size() == 0) {
                         logger.info(order_id + "--查询不到航班");
                         grabStatus = "查询不到航班";
-                        InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                        InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                         return;
                     }
                     cookie = resultMap.get("cookie");
@@ -861,7 +857,7 @@ public class KNAppOutticketService {
                 if (index == 3) {
                     logger.info(order_id + "--查询航班失败");
                     grabStatus = "查询航班失败";
-                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                     return;
                 }
                 logger.info(order_id + "--解析航班数据");
@@ -870,7 +866,7 @@ public class KNAppOutticketService {
                 } catch (Exception e) {
                     logger.info(order_id + "--解析航班数据异常");
                     grabStatus = "解析航班数据异常";
-                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                     return;
                 }
             }
@@ -882,14 +878,14 @@ public class KNAppOutticketService {
             if (verifyPostParam == null || verifyPostParam.size() == 0) {
                 logger.info(order_id + "--无符合条件航班");
                 grabStatus = "无符合条件航班";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
             if (cookie == null) {
                 logger.info(order_id + "--登录失败");
                 grabStatus = "登录失败";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             if (SysData.grabOrderMap.get(orderInfo.getId() + "") == null) {
@@ -898,7 +894,7 @@ public class KNAppOutticketService {
             }
             if (verifyPostParam.get("shoppingKey") == null || StringUtil.isEmpty(verifyPostParam.get("shoppingKey"))) {
                 grabStatus = "未找到对应价格";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 logger.info(order_id + "--未找到对应价格");
                 return;
             }
@@ -913,7 +909,7 @@ public class KNAppOutticketService {
             //选择航班
             logger.info(order_id + "--选择航班");
             grabStatus = "选择航班";
-            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
             try {
                 for (int i = 0; i < 5; i++) {
                     // cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
@@ -937,7 +933,7 @@ public class KNAppOutticketService {
                     }
                     if ("请先登录".equals(error)) {
                         grabStatus = "";
-                        InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                        InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                         cookie = getCookie(httpclient, cookie, accountInfo, defaultRequestConfig);
                         if (cookie == null) {
                             logger.info(order_id + "--");
@@ -947,7 +943,7 @@ public class KNAppOutticketService {
                     }
                     if ("查询结果已过期，请重新查询！".equals(error)) {
                         grabStatus = "查询结果已过期";
-                        InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                        InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                         // login(accountInfo);
                         cookie = getCookie(httpclient, cookie, accountInfo, defaultRequestConfig);
                         if (cookie == null) {
@@ -962,20 +958,20 @@ public class KNAppOutticketService {
                 e.printStackTrace();
                 logger.error(order_id + "选择航班异常", e);
                 grabStatus = "选择航班异常";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             if (resultMap == null || resultMap.size() == 0) {
                 logger.info(order_id + "选择航班失败");
                 grabStatus = "选择航班失败";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             if (resultMap.get("error") != null) {
                 logger.info(order_id + "选择航班失败," + resultMap.get("error"));
                 grabStatus = "选择航班异常";
                 logContent = "选择航班失败," + resultMap.get("error");
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "");
                 return;
             }
             if (SysData.grabOrderMap.get(orderInfo.getId() + "") == null) {
@@ -986,7 +982,7 @@ public class KNAppOutticketService {
                 //新增乘客
                 logger.info(order_id + "--获取用户id");
                 grabStatus = "获取用户id";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 String memberId = memberIdMap.get(memberKey);
                 if (memberId == null) {
                     memberId = "";
@@ -997,7 +993,7 @@ public class KNAppOutticketService {
                         return;
                     }
                     try {
-                        memberId = getMemberId(httpclient, cookie, defaultRequestConfig, order_id);
+                        memberId = getMemberId(cookie);
                         if ("用户或密码不正确".equals(memberId) || "please login first".equals(memberId)) {
                             logger.info(order_id + "--用户或密码不正确");
                             return;
@@ -1055,11 +1051,32 @@ public class KNAppOutticketService {
                         logger.info(order_id + "--登陆失效");
                         return;
                     }*/
-                    paxIds = getSamePassengerList(httpclient, cookie, orderInfo, defaultRequestConfig, memberId);
-                    if (paxIds != null && paxIds.size() != 0 && "please login first".equals(paxIds.get(0))) {
-                        logger.info(order_id + "--登陆失效");
-                        return;
+                    if (back.contains("乘机人的证件号码重复")) {
+                        paxIds = getSamePassengerList(httpclient, cookie, orderInfo, defaultRequestConfig, memberId);
+                        if (paxIds != null && paxIds.size() != 0 && "please login first".equals(paxIds.get(0))) {
+                            logger.info(order_id + "--登陆失效");
+                            return;
+                        }
+                    } else {
+                        Map<String, String> passengersMap = new HashMap<String, String>();
+                        for (PaxInfo paxInfo : orderInfo.getPaxInfos()) {
+                            String passengerName = paxInfo.getPaxName();
+                            String idCard = paxInfo.getCardNo();
+                            passengersMap.put(passengerName.trim() + "@" + idCard.trim(), passengerName + "@" + idCard);
+                        }
+                        JSONObject json = new JSONObject(back);
+                        JSONArray passengerArr = json.getJSONArray("passenger");
+                        for (int j = 0; j < passengerArr.length(); j++) {
+                            JSONObject passengerObj = passengerArr.getJSONObject(i);
+                            String name = passengerObj.getString("name");
+                            String idno = passengerObj.getString("idno");
+                            String id = passengerObj.getString("id");
+                            if (passengersMap.get(name.trim() + "@" + idno.trim()) != null) {
+                                paxIds.add(id);
+                            }
+                        }
                     }
+
                 } catch (Exception e) {
                     logger.error(order_id + "--添加乘客异常");
                     return;
@@ -1077,18 +1094,18 @@ public class KNAppOutticketService {
                 logger.info(order_id + "--未获取到乘机人id");
                 grabStatus = "未获取到乘机人id";
                 paxIds = null;
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             //获取提交订单的加密参数
             logger.info(order_id + "--获取增值服务");
             grabStatus = "获取增值服务";
-            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
             try {
                 cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                 if (cookie == null) {
                     grabStatus = "";
-                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                     return;
                 }
                 resultMap = ancilSearch(cookie, defaultRequestConfig, httpclient, resultMap, orderInfo);
@@ -1096,13 +1113,13 @@ public class KNAppOutticketService {
                 logger.info(order_id + "获取增值服务异常");
                 logger.error("error", e);
                 grabStatus = "获取增值服务异常";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             if (resultMap == null || resultMap.size() == 0) {
                 logger.info(order_id + "获取增值服务失败");
                 grabStatus = "获取增值服务失败";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             if (SysData.grabOrderMap.get(orderInfo.getId() + "") == null) {
@@ -1112,7 +1129,7 @@ public class KNAppOutticketService {
             //获取联系人Id
             logger.info(order_id + "--获取联系人Id");
             grabStatus = "获取联系人Id";
-            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
 //			String contactId = contactIdMap.get(memberKey);
             String contactId = "";
             try {
@@ -1139,45 +1156,54 @@ public class KNAppOutticketService {
                 logger.info(order_id + "获取联系人Id异常");
                 logger.error("error", e);
                 grabStatus = "获取联系人Id异常";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             if (StringUtil.isEmpty(contactId)) {
                 logger.info(order_id + "获取联系人Id失败");
                 grabStatus = "获取联系人Id失败";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             if (contactId.contains("ERROR:")) {
                 String errorMsg = back.split("\\:")[1];
                 logger.info(order_id + errorMsg);
                 grabStatus = errorMsg;
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             //提交订单
             logger.info(order_id + "--提交订单信息");
             grabStatus = "提交订单信息";
-            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
             try {
                 cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
+                if (paxIds.get(0).equals("please login first")) {
+                    String memberId = getMemberId(cookie);
+                    paxIds = getSamePassengerList(httpclient, cookie, orderInfo, defaultRequestConfig, memberId);
+                    if (paxIds != null && paxIds.size() != 0 && "please login first".equals(paxIds.get(0))) {
+                        logger.info(order_id + "--登陆失效");
+                        return;
+                    }
+                }
+                logger.info("paxIds" + paxIds.get(0));
                 back = orderConfirm(cookie, defaultRequestConfig, httpclient, resultMap, orderInfo, accountInfo, contactId, paxIds);
             } catch (Exception e) {
                 logger.info(order_id + "提交订单信息异常");
                 grabStatus = "提交订单信息异常";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 logger.error("error", e);
                 return;
             }
             if (StringUtil.isEmpty(back)) {
                 logger.info(order_id + "提交订单信息失败");
                 grabStatus = "提交订单信息失败";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             logger.info(order_id + "--选择支付方式");
             grabStatus = "选择支付方式";
-            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
             resultMap.clear();
 
             try {
@@ -1185,14 +1211,14 @@ public class KNAppOutticketService {
             } catch (Exception e) {
                 logger.info(order_id + "选择支付方式异常");
                 grabStatus = "选择支付方式异常";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 logger.error("error", e);
                 return;
             }
             if (resultMap == null || resultMap.size() == 0) {
                 logger.info(order_id + "选择支付方式失败");
                 grabStatus = "选择支付方式失败";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             String paymentType = resultMap.get("paymentType");
@@ -1204,7 +1230,7 @@ public class KNAppOutticketService {
             //获取订单信息
             logger.info(order_id + "--开始创建订单");
             grabStatus = "开始创建订单";
-            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
             int i = 0;
             for (; i < 5; i++) {
                 try {
@@ -1233,15 +1259,15 @@ public class KNAppOutticketService {
                 logger.info(order_id + "创单失败:" + back);
                 String result = getOrderList(httpclient, cookie, defaultRequestConfig);
                 if (result.contains("未支付")) {
-                    InitUtil.orderRemind(orderInfo.getId(), "订单创建成功，未支付" ,"订单创建成功，未支付", false, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), "订单创建成功，未支付" ,"订单创建成功，未支付", false, "");
                 } else {
                     grabStatus = "创单失败";
-                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                     return;
                 }
             }
             if (back.contains("有3笔已取消订单")) {
-                InitUtil.orderRemind(orderInfo.getId(), "订单创建失败", "您今天已经有3笔已取消订单，当天不能生成机票预订订单！", false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), "订单创建失败", "您今天已经有3笔已取消订单，当天不能生成机票预订订单！", false, "");
                 ThreadPoolExecutor executor = OutticketHandler.taskServiceMap.get(orderInfo.getBirths());
                 if (executor != null) {
                     executor.shutdownNow();
@@ -1257,7 +1283,7 @@ public class KNAppOutticketService {
                 logger.error("createOrderResultError" + e);
                 logger.info(order_id + "createOrderResultError:" + back);
                 grabStatus = "创单失败";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             resultMap.put("orderStatus", orderStatus);
@@ -1276,7 +1302,7 @@ public class KNAppOutticketService {
             if (DateUtil.IsRunningTimeOut(startTime, 7 * 60 * 1000)) {
                 logger.info(order_id + "创单超时，停止创单");
                 grabStatus = "创单超时，停止创单";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
 			/*
@@ -1286,7 +1312,7 @@ public class KNAppOutticketService {
             //获取平台订单号
             logger.info(order_id + "--生成订单");
             grabStatus = "生成订单";
-            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+            InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
             try {
                 cookie = getLoginState(httpclient, accountInfo, defaultRequestConfig, order_id, false);
                 back = payment(defaultRequestConfig, httpclient, cookie, paymentType, paymentCode, orderNo);
@@ -1294,13 +1320,13 @@ public class KNAppOutticketService {
                 logger.error("createOrderResultError" + e);
                 logger.info(order_id + "--请求生成订单异常，请到官网确认是否已经生成订单");
                 grabStatus = "生单异常";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, "请求生成订单异常，请到官网确认是否已经生成订单", false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, "请求生成订单异常，请到官网确认是否已经生成订单", false, "");
                 return;
             }
             if (StringUtil.isEmpty(back)) {
                 logger.info(order_id + "请求生成订单未返回结果，请到官网确认是否已经生成订单");
                 grabStatus = "生单异常";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, "请求生成订单异常，请到官网确认是否已经生成订单", false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, "请求生成订单异常，请到官网确认是否已经生成订单", false, "");
                 return;
             }
             JSONObject paymentObj = new JSONObject(back);
@@ -1320,14 +1346,14 @@ public class KNAppOutticketService {
                         }
                     }
                 } else {
-                    InitUtil.orderRemind(orderInfo.getId(), "已经创建订单", "已经创建订单，无法获得支付方式，请到官网支付", false, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), "已经创建订单", "已经创建订单，无法获得支付方式，请到官网支付", false, "");
                     return ;
                 }
 
             } catch (Exception e) {
                 logger.info(order_id + "生单后返回Error:" + back);
                 grabStatus = "生单异常";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, "请求生成订单异常，请到官网确认是否已经生成订单", false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, "请求生成订单异常，请到官网确认是否已经生成订单", false, "");
                 return;
             }
             if (StringUtil.isNotEmpty(transactionNumber)) {
@@ -1337,7 +1363,7 @@ public class KNAppOutticketService {
                 orderInfo.setOrderStatus("官网待支付");
                 String[] fileds = {"orderNoNew", "orderStatus"};
                 SqliteHander.modifyObjInfo(orderInfo, fileds);
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus + ",请及时出票", true, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus + ",请及时出票", true, "");
                 String content = "订单号(+" + orderInfo.getOrderNo() + ")--创单成功,请及时出票";
                 InitUtil.sendSMS(accountInfo.getTelPhone(), content);
             }
@@ -1345,7 +1371,7 @@ public class KNAppOutticketService {
             if (url == null || StringUtil.isEmpty(url)) {
                 logger.info(order_id + "未获取到支付请求");
                 grabStatus = "未获取到支付请求";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             //已经获取到订单号，开始进行支付
@@ -1354,7 +1380,7 @@ public class KNAppOutticketService {
             if (url == null || StringUtil.isEmpty(url)) {
                 logger.info(order_id + "error:未获取到支付请求");
                 grabStatus = "未获取到支付请求";
-                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                 return;
             }
             //已经获取到订单号，开始进行支付
@@ -1365,20 +1391,20 @@ public class KNAppOutticketService {
                 if (resultMap == null || resultMap.size() == 0) {
                     logger.info(order_id + "error:支付失败");
                     grabStatus = "获取支付链接异常";
-                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, false, "");
                     return;
                 } else {
                     String location = resultMap.get("locationValue");
                     grabStatus = "成功获取支付连接";
                     logContent = "支付连接--" + location;
-                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, logContent, false, "");
                     orderInfo.setLocation(location);
                     orderInfo.setCookie(cookie);
                     orderInfo.setOrderStatus("官网待支付");
                     orderInfo.setAccount(accountInfo.getAccount());
                     String[] fileds = {"location", "cookie", "orderStatus", "account"};
                     isSuccess = true;
-                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, true, "KNAppOutticketService");
+                    InitUtil.orderRemind(orderInfo.getId(), grabStatus, grabStatus, true, "");
                     SqliteHander.modifyObjInfo(orderInfo, fileds);
                     logger.info(order_id + "跳转支付中");
                 }
@@ -1396,7 +1422,7 @@ public class KNAppOutticketService {
             if (!isSuccess && grabInfo != null) {
                 if (checkTime(grabInfo.getGrabTime())) {
                     this.startCreatOrder(orderInfo, accountInfo, paxIds, retryTimes);
-//					InitUtil.orderRemind(orderInfo.getId(), "创单失败,重新创单", "创单失败,重新创单", false, "KNAppOutticketService");
+//					InitUtil.orderRemind(orderInfo.getId(), "创单失败,重新创单", "创单失败,重新创单", false, "");
                 } else {
                     try {
                         SysData.verifyParamMap.remove(orderInfo.getId());
@@ -1415,7 +1441,7 @@ public class KNAppOutticketService {
                     }
 //					String grabStatus = "创单失败";
 //					orderInfo.setOrderStatus("创单失败");
-//					InitUtil.orderRemind(orderInfo.getId(), grabStatus, "创单失败", false, "KNAppOutticketService");
+//					InitUtil.orderRemind(orderInfo.getId(), grabStatus, "创单失败", false, "");
                 }
 
             }
@@ -2124,8 +2150,8 @@ public class KNAppOutticketService {
         return passengerIds;
     }
 
-    private String getMemberId(CloseableHttpClient httpclient, String cookie,
-                               RequestConfig defaultRequestConfig, String orderId) throws Exception {
+    private String getMemberId(/*CloseableHttpClient httpclient, */String cookie/*,*/
+                               /*RequestConfig defaultRequestConfig, String orderId*/) throws Exception {
         String memberId = "";
         String[] c = cookie.split(";");
         for (String a: c) {

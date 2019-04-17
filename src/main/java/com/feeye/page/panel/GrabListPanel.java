@@ -397,12 +397,11 @@ public class GrabListPanel extends JPanel{
 		jLabel_delete.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
+				JPanel jPanel = (JPanel) panel_account.getComponent(0);
 				// JScrollPane scroll = (JScrollPane) jPanel.getComponentAt(0, 3);
-				// panel_account.gett
-				JScrollPane scroll = new JScrollPane(/*jPanel.getComponentAt(0, 3)*/ panel_account);
-				// JViewport viewport = (JViewport) scroll.getComponent(0);a
-				// viewport.getr
-				JTable table = (JTable) scroll.getComponent(0);
+				JScrollPane scroll = new JScrollPane(/*jPanel.getComponentAt(0, 3)*/ jPanel);
+				JViewport viewport = (JViewport) scroll.getComponent(0);
+				JTable table = (JTable) viewport.getComponent(0);
 				//JTable table = new JTable(scroll.);
 				List<Integer> selectedRows = new ArrayList();
 				for (int i = 0; i < table.getRowCount(); i++) {
